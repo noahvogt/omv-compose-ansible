@@ -1,0 +1,10 @@
+---
+galaxy_info:
+  author: Noah Vogt
+  description: Export the stacks of the openmediavault compose plugin into a directory, secrets as variables
+  license: GPL-3.0-or-later
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Debian
+      versions: [all]
+dependencies: []

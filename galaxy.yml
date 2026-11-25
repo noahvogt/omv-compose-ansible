@@ -1,0 +1,18 @@
+namespace: noahvogt
+name: omv_compose
+version: 0.1.0
+readme: README.md
+authors:
+  - Noah Vogt (@noahvogt)
+description: >-
+  Keep the stacks of the openmediavault compose plugin in git: deploy them into OMV,
+  refuse to overwrite changes made in the web UI, export them back with secrets as variables.
+license:
+  - GPL-3.0-or-later
+tags: [openmediavault, omv, docker, compose, nas]
+dependencies: {}
+repository: https://github.com/noahvogt/omv-compose-ansible
+issues: https://github.com/noahvogt/omv-compose-ansible/issues
+build_ignore:
+  - .gitignore
+  - "*.tar.gz"

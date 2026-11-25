@@ -1,0 +1,70 @@
+---
+- name: Read the stacks from OMV
+  noahvogt.omv_compose.stack_info:
+    secrets: "{{ omv_compose_secrets }}"
+  register: omv_compose_export
+
+- name: Stop on secrets in plain text
+  ansible.builtin.fail:
+    msg: >-
+      These lines look like a secret in plain text: {{ omv_compose_export.suspicious | join(', ') }}.
+      Add the value to omv_compose_secrets, or set omv_compose_export_force=true for a false alarm.
+  when: omv_compose_export.suspicious | length > 0 and not omv_compose_export_force | bool
+
+- name: Write the files
+  delegate_to: localhost
+  become: false
+  run_once: true
+  block:
+    - name: Create the directories
+      ansible.builtin.file:
+        path: "{{ omv_compose_dir }}/{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ [''] + omv_compose_export.stacks.keys() | list }}"
+
+    - name: Write the stack files
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "{{ omv_compose_dir }}/{{ item.path }}"
+        mode: "0644"
+      loop: "{{ omv_compose_export.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+    - name: Write stacks.yml
+      ansible.builtin.copy:
+        content: |
+          # Stacks of the OMV compose plugin: name -> description.
+          # Written by the export role of noahvogt.omv_compose.
+          {{ omv_compose_export.stacks | to_nice_yaml(sort_keys=false) }}
+        dest: "{{ omv_compose_dir }}/stacks.yml"
+        mode: "0644"
+
+    - name: Find files and directories that are gone from OMV
+      ansible.builtin.find:
+        paths: "{{ omv_compose_dir }}"
+        recurse: true
+        file_type: any
+        patterns: ["*.yml", "*.env"]
+        excludes: [stacks.yml]
+      register: omv_compose_existing
+
+    - name: Find stack directories
+      ansible.builtin.find:
+        paths: "{{ omv_compose_dir }}"
+        file_type: directory
+      register: omv_compose_dirs
+
+    - name: Delete what is gone from OMV
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: >-
+        {{ (omv_compose_existing.files | selectattr('isreg') | map(attribute='path')
+            | reject('in', omv_compose_wanted_files) | list)
+           + (omv_compose_dirs.files | map(attribute='path')
+            | reject('in', omv_compose_wanted_dirs) | list) }}
+      vars:
+        omv_compose_wanted_files: "{{ omv_compose_export.files | map(attribute='path') | map('regex_replace', '^', omv_compose_dir ~ '/') | list }}"
+        omv_compose_wanted_dirs: "{{ omv_compose_export.stacks.keys() | map('regex_replace', '^', omv_compose_dir ~ '/') | list }}"

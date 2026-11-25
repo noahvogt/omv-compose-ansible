@@ -1,0 +1,45 @@
+---
+- name: Set global.env
+  noahvogt.omv_compose.global_env:
+    content: "{{ lookup('ansible.builtin.template', omv_compose_dir ~ '/global.env') if (omv_compose_dir ~ '/global.env') is file else '' }}"
+    mask: &mask "{{ omv_compose_secrets.values() | list }}"
+    state_dir: "{{ omv_compose_state_dir }}"
+    force: "{{ omv_compose_force | bool }}"
+  register: omv_compose_globalenv
+
+- name: Check for stacks in OMV that are missing in the repo
+  ansible.builtin.fail:
+    msg: >-
+      Missing in {{ omv_compose_dir }}: {{ omv_compose_unknown | join(', ') }}.
+      Take them over with the export role, or delete them in the web UI.
+  vars:
+    omv_compose_unknown: "{{ omv_compose_globalenv.stacks | difference(omv_compose_stacks.keys()) }}"
+  when: omv_compose_unknown | length > 0 and not omv_compose_force | bool
+
+- name: Set stacks
+  noahvogt.omv_compose.stack:
+    name: "{{ item.key }}"
+    description: "{{ item.value }}"
+    body: "{{ lookup('ansible.builtin.template', omv_compose_path ~ '.yml') }}"
+    env: "{{ lookup('ansible.builtin.template', omv_compose_path ~ '.env') if (omv_compose_path ~ '.env') is file else '' }}"
+    override: "{{ lookup('ansible.builtin.template', omv_compose_override) if omv_compose_override is file else '' }}"
+    mask: *mask
+    state_dir: "{{ omv_compose_state_dir }}"
+    force: "{{ omv_compose_force | bool }}"
+  vars:
+    omv_compose_path: "{{ omv_compose_dir }}/{{ item.key }}/{{ item.key }}"
+    omv_compose_override: "{{ omv_compose_dir }}/{{ item.key }}/compose.override.yml"
+  loop: "{{ omv_compose_stacks | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: omv_compose_result
+
+# Recreates only containers whose config changed. After a change of global.env
+# this runs for every stack, docker compose leaves the unaffected ones alone.
+- name: Apply changes (docker compose up -d)
+  ansible.builtin.command: /usr/sbin/omv-compose-run {{ item.item.key | quote }} up -d
+  loop: "{{ omv_compose_result.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+  when: item.changed or omv_compose_globalenv.changed
+  changed_when: true

@@ -1,0 +1,11 @@
+---
+# Directory with the stacks, layout as written by the export role
+omv_compose_dir: "{{ playbook_dir }}/stacks"
+# Name -> description of the stacks to deploy (stacks.yml in omv_compose_dir)
+omv_compose_stacks: "{{ lookup('ansible.builtin.file', omv_compose_dir ~ '/stacks.yml') | from_yaml }}"
+# Secrets used in the templates as {{ omv_compose_secrets.<key> }}, masked in all output
+omv_compose_secrets: {}
+# Hashes of the last writes, to tell changes from the repo and from the web UI apart
+omv_compose_state_dir: /var/lib/omv-compose-ansible
+# true: overwrite changes made in the web UI, ignore stacks that are missing in omv_compose_dir
+omv_compose_force: false

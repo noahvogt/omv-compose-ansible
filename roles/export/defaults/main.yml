@@ -1,0 +1,8 @@
+---
+# Directory the stacks are written to. Used only for them: files and directories
+# in it that are no longer in OMV are deleted.
+omv_compose_dir: "{{ playbook_dir }}/stacks"
+# Known secrets, key -> value. Written as {{ omv_compose_secrets.<key> }}.
+omv_compose_secrets: {}
+# true: write even if a line looks like a secret in plain text
+omv_compose_export_force: false
