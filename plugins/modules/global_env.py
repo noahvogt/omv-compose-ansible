@@ -53,6 +53,13 @@ EXAMPLES = r"""
 """
 
 RETURN = r"""
+pending:
+  description:
+    - Whether the content in OMV is not yet applied to the containers of all stacks, from this run or an
+      earlier one that failed before C(docker compose up -d).
+    - Kept as the file C(<state_dir>/global.env.pending). Remove it after applying.
+  returned: always
+  type: bool
 stacks:
   description: Names of all stacks in OMV.
   returned: always

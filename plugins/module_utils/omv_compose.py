@@ -90,14 +90,19 @@ def sync(module, key, current, wanted, write, result):
 
     current: what OMV holds now (None if missing), wanted: what it should hold,
     write: function that writes wanted into OMV.
+
+    After a write, <state_dir>/<key>.pending marks the change as not yet applied to the
+    containers. result["pending"] tells the caller, who removes the file after applying.
     """
     p = module.params
     state_file = os.path.join(p["state_dir"], key + ".sha256")
+    pending_file = os.path.join(p["state_dir"], key + ".pending")
     try:
         with open(state_file) as fh:
             last_written = fh.read().strip()
     except FileNotFoundError:
         last_written = None
+    result["pending"] = os.path.exists(pending_file)
 
     def save_state():
         if not module.check_mode:
@@ -116,8 +121,11 @@ def sync(module, key, current, wanted, write, result):
             msg=f"{key} was changed outside Ansible (web UI?). Take the change over "
                 "(export role) or overwrite it (force).\n" + diff_text(diffs))
 
-    result.update(changed=True, created=current is None, diff=diffs)
+    result.update(changed=True, created=current is None, diff=diffs, pending=True)
     if not module.check_mode:
+        os.makedirs(p["state_dir"], mode=0o700, exist_ok=True)
+        with open(pending_file, "w"):
+            pass
         write()
         save_state()
     module.exit_json(**result)

@@ -28,7 +28,7 @@ Tested with openmediavault 8 and openmediavault-compose 8.2.
 collections:
   - name: https://github.com/noahvogt/omv-compose-ansible.git
     type: git
-    version: v0.1.0
+    version: v0.1.1
 ```
 
 ```sh
@@ -79,7 +79,8 @@ ansible-playbook deploy.yml --diff           # stacks/ -> OMV
 | `omv_compose_secrets` | `{}` | both | Secrets, key to value |
 | `omv_compose_stacks` | from `stacks.yml` | deploy | Stacks to deploy, name to description |
 | `omv_compose_force` | `false` | deploy | Overwrite changes made in the web UI, ignore stacks missing in the directory |
-| `omv_compose_state_dir` | `/var/lib/omv-compose-ansible` | deploy | Hashes of the last writes, on the host |
+| `omv_compose_state_dir` | `/var/lib/omv-compose-ansible` | deploy | Hashes of the last writes and changes not yet applied, on the host |
+| `omv_compose_apply_timeout` | `600` | deploy | Seconds `docker compose up -d` may take per stack |
 | `omv_compose_export_force` | `false` | export | Write even if a line looks like a secret in plain text |
 
 ## When the deploy stops
@@ -89,9 +90,13 @@ ansible-playbook deploy.yml --diff           # stacks/ -> OMV
 
 On the first run (no hashes yet) every difference counts as a change outside Ansible. Start with the export.
 
+If the run fails after writing to OMV, e.g. while `docker compose up -d` runs, the next run applies the change again, even though OMV already holds it.
+
+Deploying the stack of a VPN through that VPN drops the connection while the container is recreated. `docker compose up -d` runs async and keeps going, the deploy waits until the VPN is back.
+
 ## How it works
 
-The modules read OMV's database with `omv-confdbadm` and write through the plugin's RPC methods `Compose.setFile` and `Compose.setGlobalEnv`, the same calls the web UI makes. `omv-rpc` only takes parameters on the command line, so the modules call the RPC from a short PHP snippet that reads them from stdin. After a change the deploy role runs `omv-compose-run <stack> up -d`, which recreates only containers whose config changed. A change of `global.env` runs it for every stack.
+The modules read OMV's database with `omv-confdbadm` and write through the plugin's RPC methods `Compose.setFile` and `Compose.setGlobalEnv`, the same calls the web UI makes. `omv-rpc` only takes parameters on the command line, so the modules call the RPC from a short PHP snippet that reads them from stdin. After a change the deploy role runs `omv-compose-run <stack> up -d`, which recreates only containers whose config changed. A change of `global.env` runs it for every stack. Until that succeeded, a file `<stack>.pending` in the state directory marks the change as not applied.
 
 ## License
 

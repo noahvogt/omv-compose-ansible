@@ -9,3 +9,5 @@ omv_compose_secrets: {}
 omv_compose_state_dir: /var/lib/omv-compose-ansible
 # true: overwrite changes made in the web UI, ignore stacks that are missing in omv_compose_dir
 omv_compose_force: false
+# Seconds docker compose up -d may take per stack (image pulls included)
+omv_compose_apply_timeout: 600

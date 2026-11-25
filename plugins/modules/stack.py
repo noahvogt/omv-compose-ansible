@@ -18,7 +18,8 @@ description:
     else than both the wanted content and that hash, the module fails with the diff,
     unless O(force=true).
   - Does not start or recreate containers and never deletes stacks.
-    The P(noahvogt.omv_compose.deploy#role) role runs C(docker compose up -d) after changes.
+    The P(noahvogt.omv_compose.deploy#role) role runs C(docker compose up -d) after changes,
+    see RV(pending).
 options:
   name:
     description: Name of the stack.
@@ -77,11 +78,24 @@ EXAMPLES = r"""
   register: pihole
 
 - name: Apply the change
-  ansible.builtin.command: omv-compose-run pihole up -d
-  when: pihole.changed
+  ansible.builtin.command: /usr/sbin/omv-compose-run pihole up -d
+  when: pihole.pending
+
+- name: Mark the change as applied
+  ansible.builtin.file:
+    path: /var/lib/omv-compose-ansible/pihole.pending
+    state: absent
+  when: pihole.pending
 """
 
 RETURN = r"""
+pending:
+  description:
+    - Whether the content in OMV is not yet applied to the containers, from this run or an
+      earlier one that failed before C(docker compose up -d).
+    - Kept as the file C(<state_dir>/<name>.pending). Remove it after applying.
+  returned: always
+  type: bool
 created:
   description: Whether the stack was new.
   returned: always

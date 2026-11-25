@@ -36,10 +36,22 @@
 
 # Recreates only containers whose config changed. After a change of global.env
 # this runs for every stack, docker compose leaves the unaffected ones alone.
+# Async, so it survives a dropped connection, e.g. when the VPN stack is
+# recreated while Ansible connects through that VPN.
 - name: Apply changes (docker compose up -d)
   ansible.builtin.command: /usr/sbin/omv-compose-run {{ item.item.key | quote }} up -d
   loop: "{{ omv_compose_result.results }}"
   loop_control:
     label: "{{ item.item.key }}"
-  when: item.changed or omv_compose_globalenv.changed
+  when: item.pending or omv_compose_globalenv.pending
   changed_when: true
+  async: "{{ omv_compose_apply_timeout }}"
+  poll: 3
+
+- name: Mark the changes as applied
+  ansible.builtin.file:
+    path: "{{ omv_compose_state_dir }}/{{ item }}.pending"
+    state: absent
+  loop: "{{ omv_compose_result.results | selectattr('pending') | map(attribute='item.key') | list
+           + (['global.env'] if omv_compose_globalenv.pending else []) }}"
+  when: not ansible_check_mode
